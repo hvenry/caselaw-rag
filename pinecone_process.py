@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 load_dotenv()
 client = OpenAI()
 embeddings = OpenAIEmbeddings()
-file_path = "resources/wondervector.md" # change this depending on the document we want to upload
+file_path = "json_resources/text.data.jsonl" # change this depending on the document we want to upload
 
 pc = Pinecone(
         api_key=os.environ.get("PINECONE_API_KEY")
@@ -23,7 +23,7 @@ index_name = "test-index" # change this to algin with the index we want
 if index_name not in pc.list_indexes().names():
     pc.create_index(
         name=index_name, 
-        dimension= 3072, # this is dependent on the embedding model
+        dimension= 1024, # this is dependent on the embedding model
         metric='cosine',
         spec=ServerlessSpec(
             cloud='aws',
@@ -35,7 +35,7 @@ index = pc.Index(index_name)
 def embed_chunk(text):
     response = client.embeddings.create(
     input=text,
-    model="text-embedding-3-large"
+    model="text-embedding-3-small"
     )
     return response.data[0].embedding
 
