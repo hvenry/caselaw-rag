@@ -21,7 +21,7 @@ Pinecone = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 # Initialize Pinecone Vector Store
 def init_vector_store():
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-large") # we can change this if we wish
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small") # we can change this if we wish
     index_name = "test-index"
     vector_store = PineconeVectorStore.from_existing_index(index_name=index_name, embedding=embeddings)
     return vector_store
@@ -74,7 +74,7 @@ def end_chat():
 # Retrieve response from OpenAI and handle function calls
 def get_openai_response(full_prompt):
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": full_prompt}
         ],
