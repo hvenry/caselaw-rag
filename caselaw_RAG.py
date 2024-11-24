@@ -22,7 +22,7 @@ Pinecone = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 # Initialize Pinecone Vector Store
 def init_vector_store():
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small") # we can change this if we wish
-    index_name = "test-index"
+    index_name = "illinois-index"
     vector_store = PineconeVectorStore.from_existing_index(index_name=index_name, embedding=embeddings)
     return vector_store
 
@@ -35,8 +35,9 @@ def init_memory():
 def generate_prompt(query, context, history):
     prompt = f"""
     *System Role:*
-    You are a legal assistant providing expert analysis of caselaw. Use only the retrieved legal documents to answer the question.
-    Ensure your response is precise, references the relevant statutes or cases, and is easy for the user to understand.
+    You are a legal assistant providing expert analysis of caselaw. Use only the retrieved legal documents to answer the question. \\
+    Ensure your response is precise, references the relevant statutes or cases, and is easy for the user to understand. You must keep \\
+    your responses brief (1-2 sentences) and respond in a concise and professional manner.
 
     **User Query**:
     {query}
@@ -48,11 +49,10 @@ def generate_prompt(query, context, history):
     {history}
 
     *Instructions for the AI:*
-
-    1. Summarize the user’s question.
-    2. Use the retrieved documents to provide a detailed answer. Reference specific sections of the law or cases.
-    3. Clearly explain the concept of an emergency and the landlord’s legal obligations in Ontario.
-    4. Conclude with a concise summary.
+    1. Use the retrieved documents to provide a detailed answer. Reference specific sections of the law or cases.
+    2. Clearly explain your reasoning for your answer.
+    3. Ensure your response is concise and accurate.
+    4. Keep it conversational.
 
     If the user indicates they are done, please end the chat using the 'end_chat' function.
     """
@@ -114,6 +114,7 @@ def chat_with_rag(query, retriever, memory):
 
     # Step 3: Generate the prompt with structured sections
     full_prompt = generate_prompt(query, context, history)
+    # print(f"\n {full_prompt} \n") # for debugging
 
     # Step 4: Get the response from OpenAI
     response = get_openai_response(full_prompt)
