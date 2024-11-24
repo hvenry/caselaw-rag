@@ -34,18 +34,27 @@ def init_memory():
 # Generate the structured prompt
 def generate_prompt(query, context, history):
     prompt = f"""
-    You are a legal assistant. Answer caselaw questions based on the following:
+    *System Role:*
+    You are a legal assistant providing expert analysis of caselaw. Use only the retrieved legal documents to answer the question.
+    Ensure your response is precise, references the relevant statutes or cases, and is easy for the user to understand.
 
-    **Context**:
+    **User Query**:
+    {query}
+
+    **Retrieved Documents**
     {context}
 
     **Conversation History**:
     {history}
 
-    **User Query**:
-    {query}
+    *Instructions for the AI:*
 
-    Only provide answers based on the information provided. Only output your response. If the user indicates they are done, please end the chat using the 'end_chat' function.
+    1. Summarize the user’s question.
+    2. Use the retrieved documents to provide a detailed answer. Reference specific sections of the law or cases.
+    3. Clearly explain the concept of an emergency and the landlord’s legal obligations in Ontario.
+    4. Conclude with a concise summary.
+
+    If the user indicates they are done, please end the chat using the 'end_chat' function.
     """
     return prompt
 
