@@ -1,43 +1,53 @@
 import os
-import random
-import sys
 from dotenv import load_dotenv
+
+# openai
 from openai import OpenAI
-from langchain.chains import RetrievalQA
+
+# langchain
 from langchain.schema import AIMessage, HumanMessage
 from langchain.memory import ConversationBufferMemory
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
+
+# pinecone
 from pinecone.grpc import PineconeGRPC as Pinecone
 
-# Load environment variables
+# Load secrets
 load_dotenv()
-
-# Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Initialize Pinecone
 Pinecone = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+INDEX_NAME = "ny-case-law-index" # "illinois-index"
 
-# Initialize Pinecone Vector Store
+
+# Initialize pinecone vector store
 def init_vector_store():
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small") # we can change this if we wish
-    index_name = "illinois-index"
-    vector_store = PineconeVectorStore.from_existing_index(index_name=index_name, embedding=embeddings)
+    # turn our information into embeddings
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    index_name = INDEX_NAME
+
+    # embed our information into vectorstore
+    vector_store = PineconeVectorStore.from_existing_index(
+        index_name=index_name, embedding=embeddings
+    )
+
     return vector_store
+
 
 # Initialize memory for conversation history
 def init_memory():
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
     return memory
+
 
 # Generate the structured prompt
 def generate_prompt(query, context, history):
     prompt = f"""
     *System Role:*
-    You are a legal assistant providing expert analysis of caselaw. Use only the retrieved legal documents to answer the question. \\
-    Ensure your response is precise, references the relevant statutes or cases, and is easy for the user to understand. You must keep \\
-    your responses brief (1-2 sentences) and respond in a concise and professional manner.
+    You are a legal assistant providing expert analysis of common law and caselaw. Use only the retrieved legal documents to answer the question. \\
+    Ensure your response is precise, references the relevant statutes or cases, and is easy for the user to understand. \\
+    You must keep your responses brief (1-2 sentences) and respond in a concise and professional manner. \\
 
     **User Query**:
     {query}
@@ -58,16 +68,22 @@ def generate_prompt(query, context, history):
     """
     return prompt
 
+
 # Get the conversation history
 def get_history(memory):
+    # langchain memory
     messages = memory.chat_memory.messages
+
+    # append to history of user and bot messages
     history = ""
     for msg in messages:
         if isinstance(msg, HumanMessage):
             history += f"User: {msg.content}\n"
         elif isinstance(msg, AIMessage):
             history += f"LawBot: {msg.content}\n"
+
     return history.strip()
+
 
 # Retrieve context from Pinecone using the retriever
 def get_context(query, retriever):
@@ -75,26 +91,26 @@ def get_context(query, retriever):
     context = "\n".join([doc.page_content for doc in docs])
     return context
 
+
 # End the chat gracefully
 def end_chat():
     print("LawBot: Okay! Let me know if you need anything else!")
     exit()
 
+
 # Retrieve response from OpenAI and handle function calls
 def get_openai_response(full_prompt):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": full_prompt}
-        ],
+        messages=[{"role": "system", "content": full_prompt}],
         functions=[
             {
                 "name": "end_chat",
-                "description": "Ends the chat session when the user wants to quit."
+                "description": "Ends the chat session when the user wants to quit.",
             }
         ],
         function_call="auto",
-        temperature=1
+        temperature=1,
     )
     # Check for function call
     if response.choices[0].finish_reason == "function_call":
@@ -103,9 +119,9 @@ def get_openai_response(full_prompt):
 
     return response.choices[0]
 
+
 # Chat function using retriever and function calling
 def chat_with_rag(query, retriever, memory):
-
     # Step 1: Get conversation history
     history = get_history(memory)
 
@@ -121,6 +137,7 @@ def chat_with_rag(query, retriever, memory):
 
     return response, context
 
+
 # Main function to drive the chatbot
 def main():
     # Initialize components
@@ -128,7 +145,7 @@ def main():
     memory = init_memory()
 
     # Initialize retriever
-    retriever = vector_store.as_retriever(search_type="mmr", search_kwargs={'k': 5})
+    retriever = vector_store.as_retriever(search_type="mmr", search_kwargs={"k": 5})
 
     # Welcome message
     print("LawBot: Hi! How can I help you with your legal questions?")
@@ -142,6 +159,7 @@ def main():
         # Update memory with the user's query and assistant's response
         memory.chat_memory.add_user_message(query)
         memory.chat_memory.add_ai_message(output.message.content)
+
 
 if __name__ == "__main__":
     main()
