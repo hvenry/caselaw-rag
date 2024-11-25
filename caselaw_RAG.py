@@ -17,13 +17,14 @@ from pinecone.grpc import PineconeGRPC as Pinecone
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 Pinecone = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+INDEX_NAME = "ny-case-law-index" # "illinois-index"
 
 
 # Initialize pinecone vector store
 def init_vector_store():
     # turn our information into embeddings
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-    index_name = "illinois-index"
+    index_name = INDEX_NAME
 
     # embed our information into vectorstore
     vector_store = PineconeVectorStore.from_existing_index(

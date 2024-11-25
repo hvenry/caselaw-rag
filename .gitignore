@@ -1,2 +1,7 @@
 # Environment variables file 
 .env
+
+# Scraped data
+/data
+
+.DS_Store

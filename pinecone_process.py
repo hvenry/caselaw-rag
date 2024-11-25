@@ -1,10 +1,10 @@
 import time
 import os
 import logging
+import json
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.document_loaders import TextLoader
 from pinecone import ServerlessSpec
 from pinecone.grpc import PineconeGRPC as Pinecone
 from openai import OpenAI
@@ -16,7 +16,6 @@ pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 client = OpenAI()
 embeddings = OpenAIEmbeddings()
 
-
 """
 Create Pinecone index
 
@@ -25,7 +24,8 @@ dimensions: The dimensions of the vectors being stored in the index (typically 7
 metric: The distance metric to be used for similarity search.
 spec: Specifies that the index should be a serverless index on AWS in us-east-1.
 """
-index_name = "illinois-index"
+index_name = "ny-case-law-index"
+file_path = "data/caselaw_dataset.json"
 
 if index_name not in pc.list_indexes().names():
     pc.create_index(
@@ -35,55 +35,57 @@ if index_name not in pc.list_indexes().names():
         spec=ServerlessSpec(cloud="aws", region="us-east-1"),
     )
 
-# Initialize the pinecone index, specify file
+# Initialize the pinecone index
 index = pc.Index(index_name)
 
 
 # Convert chunk of text into vector embedding using OpenAI embedding
 def embed_chunk(text):
     response = client.embeddings.create(input=text, model="text-embedding-3-small")
-
     # Return embedding
     return response.data[0].embedding
 
 
-# Read document from file path, split document into chunks, embed chunks
-def process_document(file_path):
-    # Load document with utf-8 encoding
-    loader = TextLoader(file_path=file_path, encoding="utf-8")
-    data = loader.load()
+# Process a single case to extract key information and embed it
+def process_case(case_data):
+    case_id = case_data.get("id", "unknown_id")
+    case_name = case_data.get("name", "unknown_case")
+    legal_issues = case_data.get("casebody", {}).get("opinions", [{}])[0].get("text", "")
+    summary = f"Case Name: {case_name}\nLegal Issues: {legal_issues}"
 
-    # Split document into chunks, 1000 char / chunk, overlap previous chunk by 200 chars, with starting index
+    # Split the summary into smaller chunks
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=200, add_start_index=True
     )
-    data = text_splitter.split_documents(data)
+    chunks = text_splitter.split_text(summary)
 
-    # Initialize results list and embed document chunks
-    res = []
-    print("Embedding document chunks...")
+    # Embed each chunk
+    embeddings = []
+    for idx, chunk in enumerate(chunks):
+        values = embed_chunk(chunk)
+        metadata = {"case_id": case_id, "case_name": case_name, "text": chunk}
+        embeddings.append({"id": f"{case_id}-{idx}", "values": values, "metadata": metadata})
+    return embeddings
 
-    # Iterate over each chunk (and display progress with tqdm)
-    for i in tqdm(range(len(data)), desc="Processing Chunks"):
-        chunk = data[i]
-        # Create unique id for chunk using source and index
-        id = chunk.metadata["source"] + "-" + str(i)
-        # Extract text of chunk, embed into values, and store metadata
-        text = chunk.page_content
-        values = embed_chunk(text)
-        metadata = {"text": text}
-        # Add our embedded information with unique id and metadata to our result
-        res.append({"id": id, "values": values, "metadata": metadata})
 
-    # Return embedded chunks as results
-    return res
+# Process a JSON file containing multiple cases
+def process_cases(file_path):
+    with open(file_path, "r", encoding="utf-8") as f:
+        cases = json.load(f)
+
+    all_embeddings = []
+    print("Processing cases...")
+    for case in tqdm(cases, desc="Embedding Cases"):
+        embeddings = process_case(case)
+        all_embeddings.extend(embeddings)
+    return all_embeddings
 
 
 # Split sequence into smaller chunks of a specified size
 def chunker(seq, batch_size):
     # Yield successive chunks of sequence
     for pos in range(0, len(seq), batch_size):
-        yield seq[pos : pos + batch_size]
+        yield seq[pos:pos + batch_size]
 
 
 # Function used to upload our embeddings to Pinecone
@@ -108,14 +110,13 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-file_path = "json_resources/sample.jsonl"
 
 
 def main(file_path):
     try:
-        # Process document
-        logging.info("Processing document...")
-        data = process_document(file_path)
+        # Process cases
+        logging.info("Processing cases...")
+        data = process_cases(file_path)
 
         # Upload to Pinecone
         logging.info("Uploading data to Pinecone...")
