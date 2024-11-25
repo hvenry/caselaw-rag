@@ -32,13 +32,13 @@ cd caselaw-rag
 Create new conda environment:
 
 ```bash
-conda create --name caselaw_rag
+conda create --name caselaw_rag python=3.10
 ```
 
 Activate the conda environment:
 
 ```bash
-conda create --name caselaw_rag
+conda activate caselaw_rag
 ```
 
 Install Dependencies:
