@@ -101,7 +101,7 @@ def end_chat():
 # Retrieve response from OpenAI and handle function calls
 def get_openai_response(full_prompt):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "system", "content": full_prompt}],
         functions=[
             {
