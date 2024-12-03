@@ -101,7 +101,7 @@ def end_chat():
 # Retrieve response from OpenAI and handle function calls
 def get_openai_response(full_prompt):
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-3.5-turbo",
         messages=[{"role": "system", "content": full_prompt}],
         functions=[
             {
@@ -137,7 +137,20 @@ def chat_with_rag(query, retriever, memory):
 
     return response, context
 
+# Chat function without retriever, to show plain OpenAI response
+def chat_with_openai(query, memory):
+    # Step 1: Get conversation history
+    history = get_history(memory)
 
+    # Step 2: Generate the prompt without retrieved context
+    full_prompt = generate_prompt(query, context="", history=history)
+
+    # Step 3: Get the response from OpenAI
+    response = get_openai_response(full_prompt)
+
+    return response
+
+    
 # Main function to drive the chatbot
 def main():
     # Initialize components
@@ -153,12 +166,19 @@ def main():
     while True:
         query = input("User: ")
 
-        output, _ = chat_with_rag(query, retriever, memory)
-        print(f"LawBot: {output.message.content}")
+        rag_output, _ = chat_with_rag(query, retriever, memory)
+        openai_output = chat_with_openai(query, memory)
 
-        # Update memory with the user's query and assistant's response
+        # Display both responses
+        print("\n--- LawBot with RAG (Pinecone + OpenAI) ---")
+        print(f"LawBot: {rag_output.message.content}")
+        print("\n--- LawBot with OpenAI only ---")
+        print(f"LawBot: {openai_output.message.content}")
+
+        # Update memory with the user's query and both assistant responses
         memory.chat_memory.add_user_message(query)
-        memory.chat_memory.add_ai_message(output.message.content)
+        memory.chat_memory.add_ai_message(rag_output.message.content)
+        memory.chat_memory.add_ai_message(openai_output.message.content)
 
 
 if __name__ == "__main__":
